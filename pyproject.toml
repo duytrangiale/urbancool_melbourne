@@ -1,0 +1,33 @@
+[project]
+name = "urbancool-melbourne"
+version = "0.1.0"
+description = "ML-powered urban heat vulnerability mapping for Greater Melbourne"
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "geopandas",
+    "shapely",
+    "rasterio",
+    "fiona",
+    "pyproj",
+    "osmnx",
+    "scikit-learn",
+    "xgboost",
+    "lightgbm",
+    "shap",
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "folium",
+    "streamlit",
+    "pyyaml",
+    "python-dotenv",
+    "requests",
+    "pytest",
+    "jupyter",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*", "app*"]

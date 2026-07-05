@@ -1,0 +1,54 @@
+# UrbanCool Melbourne — project configuration
+# Paths, CRS, spatial boundaries, and model parameters shared across scripts/notebooks.
+
+study_area:
+  name: "Greater Melbourne"
+  # Approximate bounding box (WGS84 / EPSG:4326): [min_lon, min_lat, max_lon, max_lat]
+  bbox: [144.5937, -38.4339, 145.5125, -37.5113]
+  lga_filter: "Melbourne"  # City of Melbourne LGA, used to narrow OSM/ABS queries where relevant
+
+crs:
+  working: "EPSG:28355"   # GDA94 / MGA Zone 55 — projected CRS for area/distance calculations
+  geographic: "EPSG:4326" # WGS84 — CRS most raw sources are published in
+
+spatial_unit: "SA2"  # Statistical Area Level 2 — primary unit of analysis
+
+paths:
+  data_raw: "data/raw"
+  data_interim: "data/interim"
+  data_processed: "data/processed"
+  models: "models"
+  outputs: "outputs"
+
+data_sources:
+  melbourne_trees:
+    dataset_id: "trees-with-species-and-dimensions-urban-forest"
+    base_url: "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets"
+    format: "csv"
+  tree_canopies:
+    dataset_id: "tree-canopies-2021-urban-forest"
+    base_url: "https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets"
+    format: "geojson"
+  urban_heat:
+    source: "manual"  # No public API — ordered via DataShare Vic's cart/checkout flow (DEECA GeoNetwork catalogue)
+    portal_url: "https://www.planning.vic.gov.au/guides-and-resources/Data-spatial-and-insights/melbournes-vegetation-heat-and-land-use-data"
+    format: "vector"  # ESRI Shapefile/MapInfo/KML polygons on ABS Mesh Blocks (heat/vegetation) or SA1 (HVI) — NOT raster GeoTIFF
+    datasets:
+      # uuid resolves at https://datashare.maps.vic.gov.au/search?q=uuid={uuid}
+      urban_heat_2018: "ea69bd5e-3682-5326-b1ec-8e2964baa6a0"
+      heat_vulnerability_index_2018: "24ad3055-277e-5693-a56a-09c09686f2de"
+      heat_vulnerability_index_2014: "2b74f6d3-830f-5222-b654-542e36a9b241"
+      vegetation_cover_2018: "88728f89-b1e1-5bba-9dce-04107c064fd2"
+      vegetation_cover_2014: "5ba40293-2b24-58e1-88c9-5d8670fcaba5"
+      vegetation_cover_change_2014_2018: "65fae1f7-0de7-5afa-8e71-516ad63af65d"
+  bom_weather:
+    station_id: "086338"  # Melbourne (Olympic Park) — BOM station number, for CDO historical exports
+    wmo_id: "95936"        # Melbourne (Olympic Park) — WMO number, for the live observations JSON feed
+  abs_boundaries:
+    level: "SA2"
+    state: "VIC"
+
+model:
+  random_state: 42
+  test_size: 0.2
+  target_column: "UHI18_M"  # 2018 mean Urban Heat Island value, Mesh Block level, from HEAT_URBAN_HEAT_2018.shp (SA2_MAIN16 is the join key to SA2 boundaries)
