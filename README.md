@@ -8,7 +8,7 @@ See [UrbanCool_Melbourne_Project_Guide.md](UrbanCool_Melbourne_Project_Guide.md)
 
 ## Project Status
 
-Day 1 complete — environment set up, all data sources downloaded and validated (including the manually-ordered urban heat/vegetation shapefiles).
+Day 2 complete — see [DAY_2.md](DAY_2.md) for exploration findings and cleaning decisions. Day 1: environment set up, all data sources downloaded and validated (including the manually-ordered urban heat/vegetation shapefiles).
 
 ## Data Sources
 
