@@ -11,11 +11,42 @@ counterpart for that.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import yaml
+
+_OSM_ARRAY_STRING_RE = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+
+
+def _clean_osm_array_string(value):
+    """Turn a multi-valued OSM edge attribute into one clean string.
+
+    pyogrio parses GeoJSON array-typed properties (osmnx emits a numpy array
+    when several original OSM ways were merged into one graph edge) as an
+    actual ``numpy.ndarray``, not a Python list or a string. Left alone,
+    ``.astype("string")`` later calls ``str()`` on that array and bakes in
+    numpy's own repr — e.g. ``"['residential' 'unclassified']"`` (no commas,
+    single-quoted) — as literal text. This catches the array *before* that
+    happens and joins its elements with ';' instead.
+
+    Also defensively handles a plain Python list (in case some other code
+    path produces one) and falls back to str() bracket-parsing for a value
+    that's already been through that lossy conversion. Already-clean scalars
+    (a plain osmid string, a bare highway type, None) pass through unchanged.
+    """
+    if isinstance(value, np.ndarray):
+        return ";".join(str(v) for v in value.tolist())
+    if isinstance(value, list):
+        return ";".join(str(v) for v in value)
+    if isinstance(value, str) and value.startswith("[") and value.endswith("]"):
+        matches = _OSM_ARRAY_STRING_RE.findall(value)
+        items = [a or b for a, b in matches]
+        return ";".join(items) if items else value
+    return value
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -121,13 +152,16 @@ def load_and_clean_osm(config: dict) -> dict[str, gpd.GeoDataFrame]:
         gdf = gdf[cols].to_crs(working_crs)
         if name == "roads":
             # osmnx edge attributes (osmid, highway, name, oneway) can be a
-            # scalar or a list per edge when multiple OSM ways were merged
-            # into one graph edge — mixed list/scalar columns break Arrow.
+            # scalar or a list/array per edge when multiple OSM ways were
+            # merged into one graph edge. By the time this GeoJSON round-trip
+            # is read back, those aren't Python list objects any more — the
+            # original download.py write already serialized them via numpy's
+            # str() (e.g. "['residential' 'unclassified']", no commas,
+            # single-quoted, space-separated), so `isinstance(v, list)` never
+            # matches here. Parse that format back into clean values instead.
             for col in ("osmid", "highway", "name", "oneway"):
                 if col in gdf.columns:
-                    gdf[col] = gdf[col].apply(
-                        lambda v: ";".join(map(str, v)) if isinstance(v, list) else v
-                    ).astype("string")
+                    gdf[col] = gdf[col].apply(_clean_osm_array_string).astype("string")
         layers[name] = gdf
 
     layers["buildings"]["building_area_sqm"] = layers["buildings"].geometry.area

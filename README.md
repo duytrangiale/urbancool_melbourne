@@ -8,7 +8,7 @@ See [UrbanCool_Melbourne_Project_Guide.md](UrbanCool_Melbourne_Project_Guide.md)
 
 ## Project Status
 
-Day 2 complete — see [DAY_2.md](DAY_2.md) for exploration findings and cleaning decisions. Day 1: environment set up, all data sources downloaded and validated (including the manually-ordered urban heat/vegetation shapefiles).
+Day 4 complete — see [DAY_4.md](DAY_4.md) for model training & evaluation details (spatially-grouped CV, tuned Random Forest, held-out test R²=0.465, SHAP explainability; `models/best_model.joblib`). Day 3: feature engineering, see [DAY_3.md](DAY_3.md) (`data/processed/feature_matrix.csv`, 361 SA2 rows × 26 columns). Day 2: exploration & cleaning, see [DAY_2.md](DAY_2.md). Day 1: environment set up, all data sources downloaded and validated.
 
 ## Data Sources
 
