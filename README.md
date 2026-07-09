@@ -8,7 +8,7 @@ See [UrbanCool_Melbourne_Project_Guide.md](UrbanCool_Melbourne_Project_Guide.md)
 
 ## Project Status
 
-Day 4 complete — see [DAY_4.md](DAY_4.md) for model training & evaluation details (spatially-grouped CV, tuned Random Forest, held-out test R²=0.465, SHAP explainability; `models/best_model.joblib`). Day 3: feature engineering, see [DAY_3.md](DAY_3.md) (`data/processed/feature_matrix.csv`, 361 SA2 rows × 26 columns). Day 2: exploration & cleaning, see [DAY_2.md](DAY_2.md). Day 1: environment set up, all data sources downloaded and validated.
+Day 4 complete, plus a follow-up accuracy round — see [DAY_4.md](DAY_4.md) for model training & evaluation details. Spatially-grouped CV comparison across SA2 (361 suburbs) and SA1 (11,487 finer units) resolutions, plus new demographic features, found SA1 generalizes clearly better (held-out test R²=0.572, RMSE=1.13°C, vs. SA2's R²=0.439); tuned Random Forest, SHAP explainability, saved to `models/best_model.joblib`. Day 3: feature engineering, see [DAY_3.md](DAY_3.md) (`data/processed/feature_matrix.csv`, 361 SA2 rows × 26 columns). Day 2: exploration & cleaning, see [DAY_2.md](DAY_2.md). Day 1: environment set up, all data sources downloaded and validated.
 
 ## Data Sources
 

@@ -206,6 +206,17 @@ def load_and_clean_abs_boundaries(config: dict) -> gpd.GeoDataFrame:
     return melb.to_crs(config["crs"]["working"])
 
 
+def load_and_clean_abs_sa1_boundaries(config: dict) -> gpd.GeoDataFrame:
+    """Load ABS SA1 boundaries and filter to Greater Melbourne (GCC_NAME21) — same
+    filter as the SA2 boundaries, one geography level finer (each SA2 contains several
+    SA1s). Used to model heat vulnerability at higher spatial resolution; see DAY_4.md.
+    """
+    shapefiles = list((_raw_dir(config) / "abs_boundaries_sa1").glob("*.shp"))
+    gdf = gpd.read_file(shapefiles[0])
+    melb = gdf[gdf["GCC_NAME21"] == "Greater Melbourne"].copy()
+    return melb.to_crs(config["crs"]["working"])
+
+
 def save_interim(gdf: gpd.GeoDataFrame, config: dict, name: str) -> Path:
     """Save a cleaned GeoDataFrame to data/interim/<name>.parquet."""
     dest_dir = PROJECT_ROOT / config["paths"]["data_interim"]
@@ -222,6 +233,7 @@ def main() -> None:
     save_interim(load_and_clean_trees(config), config, "trees")
     save_interim(load_and_clean_canopy(config), config, "tree_canopy")
     save_interim(load_and_clean_abs_boundaries(config), config, "sa2_boundaries")
+    save_interim(load_and_clean_abs_sa1_boundaries(config), config, "sa1_boundaries")
 
     for name, gdf in load_and_clean_osm(config).items():
         save_interim(gdf, config, f"osm_{name}")

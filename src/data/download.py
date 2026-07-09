@@ -267,6 +267,29 @@ def download_abs_boundaries(config: dict) -> Path:
     return dest_dir
 
 
+def download_abs_sa1_boundaries(config: dict) -> Path:
+    """Fetch ABS SA1 digital boundary shapefiles (ASGS Edition 3) — a finer geography
+    than SA2 (each SA2 is made of several SA1s, see the ABS hierarchy in DAY_3.md),
+    used to model at higher spatial resolution (see DAY_4.md's Part G). This is
+    an Australia-wide file (~100MB, ~62K SA1s); loaders.py filters it down to Greater
+    Melbourne on load, same as the SA2 boundaries.
+    """
+    url = (
+        "https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs-edition-3/"
+        "jul2021-jun2026/access-and-downloads/digital-boundary-files/SA1_2021_AUST_SHP_GDA2020.zip"
+    )
+    dest_dir = _raw_dir(config) / "abs_boundaries_sa1"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Downloading ABS SA1 boundaries from %s", url)
+    resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=180)
+    resp.raise_for_status()
+    with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+        zf.extractall(dest_dir)
+    logger.info("Extracted ABS SA1 boundaries to %s", dest_dir)
+    return dest_dir
+
+
 def main() -> None:
     config = load_config()
 
@@ -274,6 +297,7 @@ def main() -> None:
         "melbourne_trees": download_melbourne_trees(config),
         "tree_canopies": download_tree_canopies(config),
         "abs_boundaries": download_abs_boundaries(config),
+        "abs_boundaries_sa1": download_abs_sa1_boundaries(config),
         "bom_weather": download_bom_weather(config),
         "osm_features": download_osm_features(config),
         "urban_heat": download_urban_heat_data(config),

@@ -1,7 +1,10 @@
 """Baseline model comparison, spatially-aware cross-validation, hyperparameter tuning,
-and artifact saving for the SA2-level urban heat regression task.
+and artifact saving for the urban heat regression task — at both SA2 and SA1 resolution
+(see DAY_4.md's Part G for why SA1 was added: ~30x more training rows using
+data already on disk, no new downloads beyond ABS SA1 boundaries).
 
-Run as a script to reproduce the full Day 4 pipeline end-to-end:
+Run as a script to build both resolutions, compare them on a held-out spatial test set,
+and save whichever generalises better as ``models/best_model.joblib``:
 
     python -m src.models.train
 """
@@ -39,15 +42,35 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", message="X does not have valid feature names")
 
 TARGET_COL = "mean_uhi_2018"
-GROUP_COL = "SA3_CODE21"
+
+# Each resolution's feature matrix, boundary file, own-level code column, and the
+# one-level-up geography to group spatial CV/splits by (SA3 for SA2, SA2 for SA1) — see
+# DAY_4.md A1 for why grouping one level up matters.
+RESOLUTIONS = {
+    "SA2": {
+        "feature_matrix": "feature_matrix.csv",
+        "boundaries": "sa2_boundaries.parquet",
+        "code_col": "SA2_CODE21",
+        "group_col": "SA3_CODE21",
+    },
+    "SA1": {
+        "feature_matrix": "feature_matrix_sa1.csv",
+        "boundaries": "sa1_boundaries.parquet",
+        "code_col": "SA1_CODE21",
+        "group_col": "SA2_CODE21",
+    },
+}
 
 # The City of Melbourne tree/canopy columns (tree_count, canopy_coverage_ratio_city, etc.)
 # are ~89% missing outside the inner LGA (see DAY_3.md section C1) and already have a
 # full-coverage substitute (vegetation_cover_pct_state / tree_cover_pct_state), so they're
 # excluded here rather than imputed — imputing a value for 89% of rows would mostly be
 # guessing, not signal. max_uhi_2018 and heat_mesh_block_count are dropped as target
-# leakage: both come from the same heat-overlay computation as mean_uhi_2018 itself
-# (see DAY_4.md for the reasoning).
+# leakage: both come from the same heat-overlay computation as mean_uhi_2018 itself.
+# population_density / pct_population_needing_care (from the Vic Government Heat
+# Vulnerability Index dataset's 2016-Census-derived indicators, NOT its HVI_INDEX column,
+# which is itself heat-derived and would be leakage) are new as of this round — see
+# DAY_4.md's Part G and src/features/spatial.py::compute_demographic_features.
 FEATURE_COLS = [
     "area_sqkm",
     "vegetation_cover_pct_state",
@@ -61,6 +84,8 @@ FEATURE_COLS = [
     "dist_to_nearest_park_m",
     "dist_to_nearest_water_m",
     "impervious_ratio",
+    "population_density",
+    "pct_population_needing_care",
 ]
 
 _BOOSTING_PARAM_DIST = {
@@ -88,30 +113,35 @@ PARAM_DIST_BY_MODEL = {
 }
 
 
-def load_model_data(config: dict | None = None) -> pd.DataFrame:
-    """Load the feature matrix, attach an SA3 grouping column, and drop rows with no target."""
+def load_model_data(resolution: str = "SA2", config: dict | None = None) -> pd.DataFrame:
+    """Load a resolution's feature matrix, attach its one-level-up grouping column, and
+    drop rows with no target."""
     config = config or load_config()
+    res = RESOLUTIONS[resolution]
     processed = PROJECT_ROOT / config["paths"]["data_processed"]
     interim = PROJECT_ROOT / config["paths"]["data_interim"]
 
-    features = pd.read_csv(processed / "feature_matrix.csv", dtype={"SA2_CODE21": str})
-    sa2 = gpd.read_parquet(interim / "sa2_boundaries.parquet")
+    features = pd.read_csv(processed / res["feature_matrix"], dtype={res["code_col"]: str})
+    boundaries = gpd.read_parquet(interim / res["boundaries"])
 
-    data = features.merge(sa2[["SA2_CODE21", "SA3_CODE21", "SA3_NAME21"]], on="SA2_CODE21", how="left")
+    data = features.merge(boundaries[[res["code_col"], res["group_col"]]].drop_duplicates(), on=res["code_col"], how="left")
     n_before = len(data)
     data = data.dropna(subset=[TARGET_COL]).reset_index(drop=True)
-    logger.info("Loaded %d SA2 rows, dropped %d with no heat target -> %d modeling rows", n_before, n_before - len(data), len(data))
+    logger.info(
+        "[%s] Loaded %d rows, dropped %d with no heat target -> %d modeling rows",
+        resolution, n_before, n_before - len(data), len(data),
+    )
     return data
 
 
-def spatial_train_test_split(data: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
-    """80/20 split grouped by SA3 (~40 sub-regions of a few adjacent SA2s each), so whole
-    neighbourhoods land on one side of the split. A plain random split would put spatially
-    adjacent, autocorrelated SA2s on both sides and overstate test performance (see
-    DAY_4.md for why this matters for this dataset specifically).
+def spatial_train_test_split(data: pd.DataFrame, group_col: str, test_size: float = 0.2, random_state: int = 42):
+    """80/20 split grouped by ``group_col`` (the geography one level up from the modeling
+    unit), so whole neighbourhoods land on one side of the split. A plain random split
+    would put spatially adjacent, autocorrelated rows on both sides and overstate test
+    performance (see DAY_4.md A1 for why this matters for this dataset specifically).
     """
     splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-    train_idx, test_idx = next(splitter.split(data, groups=data[GROUP_COL]))
+    train_idx, test_idx = next(splitter.split(data, groups=data[group_col]))
     return data.iloc[train_idx].reset_index(drop=True), data.iloc[test_idx].reset_index(drop=True)
 
 
@@ -144,8 +174,8 @@ def build_models(random_state: int = 42) -> dict[str, Pipeline]:
 
 
 def evaluate_with_cv(models: dict[str, Pipeline], X: pd.DataFrame, y: pd.Series, groups: pd.Series, n_splits: int = 5) -> pd.DataFrame:
-    """Spatially-grouped 5-fold CV (GroupKFold by SA3) for each model. Returns RMSE / MAE /
-    R^2 mean +/- std across folds, sorted best (lowest RMSE) first."""
+    """Spatially-grouped 5-fold CV for each model. Returns RMSE / MAE / R^2 mean +/- std
+    across folds, sorted best (lowest RMSE) first."""
     cv = GroupKFold(n_splits=n_splits)
     scoring = {"RMSE": "neg_root_mean_squared_error", "MAE": "neg_mean_absolute_error", "R2": "r2"}
     rows = []
@@ -196,67 +226,103 @@ def extract_feature_importance(pipeline: Pipeline, feature_cols: list[str]) -> p
     return pd.DataFrame({"feature": feature_cols, "importance": values}).sort_values("importance", ascending=False).reset_index(drop=True)
 
 
-def save_artifacts(model: Pipeline, feature_cols: list[str], cv_summary: pd.DataFrame, best_params: dict, test_metrics: dict, config: dict | None = None):
+def run_pipeline(resolution: str, config: dict | None = None) -> dict:
+    """Full train/tune/evaluate pipeline for one resolution (SA2 or SA1). Returns
+    everything needed to compare resolutions and, if selected, save artifacts."""
+    config = config or load_config()
+    model_cfg = config["model"]
+    res = RESOLUTIONS[resolution]
+
+    data = load_model_data(resolution, config)
+    train, test = spatial_train_test_split(data, res["group_col"], test_size=model_cfg["test_size"], random_state=model_cfg["random_state"])
+    logger.info(
+        "[%s] Train: %d rows / %d %s groups | Test: %d rows / %d %s groups",
+        resolution, len(train), train[res["group_col"]].nunique(), res["group_col"],
+        len(test), test[res["group_col"]].nunique(), res["group_col"],
+    )
+
+    X_train, y_train, groups_train = train[FEATURE_COLS], train[TARGET_COL], train[res["group_col"]]
+    X_test, y_test = test[FEATURE_COLS], test[TARGET_COL]
+
+    models = build_models(model_cfg["random_state"])
+    cv_summary = evaluate_with_cv(models, X_train, y_train, groups_train)
+    logger.info("[%s] Baseline CV comparison (grouped 5-fold, by %s):\n%s", resolution, res["group_col"], cv_summary.to_string(index=False))
+
+    real_models = cv_summary[cv_summary["model"] != "Mean baseline"]
+    best_name = real_models.iloc[0]["model"]
+    logger.info("[%s] Best baseline by CV RMSE: %s", resolution, best_name)
+
+    search = tune_model(best_name, X_train, y_train, groups_train, model_cfg["random_state"])
+    logger.info("[%s] Tuned %s best CV RMSE: %.4f | best params: %s", resolution, best_name, -search.best_score_, search.best_params_)
+
+    test_metrics = evaluate_on_test(search.best_estimator_, X_test, y_test)
+    logger.info("[%s] Held-out test metrics for tuned %s: %s", resolution, best_name, test_metrics)
+
+    # Report generalization using the untouched test set above, then refit the tuned
+    # hyperparameters on ALL rows (train + test) for the artifact that could ship in
+    # models/ — standard practice once the held-out estimate has already been recorded.
+    final_pipe = build_models(model_cfg["random_state"])[best_name]
+    final_pipe.set_params(**search.best_params_)
+    final_pipe.fit(data[FEATURE_COLS], data[TARGET_COL])
+
+    return {
+        "resolution": resolution,
+        "n_rows": len(data),
+        "n_groups": data[res["group_col"]].nunique(),
+        "cv_summary": cv_summary,
+        "best_name": best_name,
+        "best_params": search.best_params_,
+        "test_metrics": test_metrics,
+        "test_model": search.best_estimator_,  # train-only fit, for plotting held-out predictions
+        "final_model": final_pipe,  # refit on all rows (train+test), the artifact that gets saved
+        "X_test": X_test,
+        "y_test": y_test,
+    }
+
+
+def save_artifacts(result: dict, config: dict | None = None):
     config = config or load_config()
     models_dir = PROJECT_ROOT / config["paths"]["models"]
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    joblib.dump(model, models_dir / "best_model.joblib")
-    extract_feature_importance(model, feature_cols).to_csv(models_dir / "feature_importance.csv", index=False)
-    cv_summary.to_csv(models_dir / "cv_summary.csv", index=False)
+    joblib.dump(result["final_model"], models_dir / "best_model.joblib")
+    extract_feature_importance(result["final_model"], FEATURE_COLS).to_csv(models_dir / "feature_importance.csv", index=False)
+    result["cv_summary"].to_csv(models_dir / "cv_summary.csv", index=False)
     with open(models_dir / "best_params.json", "w") as f:
-        json.dump(best_params, f, indent=2)
+        json.dump(result["best_params"], f, indent=2)
     with open(models_dir / "test_metrics.json", "w") as f:
-        json.dump(test_metrics, f, indent=2)
+        json.dump(result["test_metrics"], f, indent=2)
+    with open(models_dir / "model_info.json", "w") as f:
+        json.dump({"resolution": result["resolution"], "model": result["best_name"], "n_rows": result["n_rows"], "n_groups": result["n_groups"]}, f, indent=2)
 
-    logger.info("Saved model + artifacts to %s", models_dir)
+    logger.info("Saved model + artifacts to %s (%s / %s)", models_dir, result["resolution"], result["best_name"])
     return models_dir
 
 
 def main() -> dict:
     config = load_config()
-    model_cfg = config["model"]
-    data = load_model_data(config)
 
-    train, test = spatial_train_test_split(data, test_size=model_cfg["test_size"], random_state=model_cfg["random_state"])
-    logger.info(
-        "Train: %d rows / %d SA3 groups | Test: %d rows / %d SA3 groups",
-        len(train), train[GROUP_COL].nunique(), len(test), test[GROUP_COL].nunique(),
-    )
+    results = {resolution: run_pipeline(resolution, config) for resolution in RESOLUTIONS}
 
-    X_train, y_train, groups_train = train[FEATURE_COLS], train[TARGET_COL], train[GROUP_COL]
-    X_test, y_test = test[FEATURE_COLS], test[TARGET_COL]
+    comparison = pd.DataFrame([
+        {
+            "resolution": r["resolution"], "model": r["best_name"], "n_rows": r["n_rows"], "n_groups": r["n_groups"],
+            "test_RMSE": r["test_metrics"]["RMSE"], "test_MAE": r["test_metrics"]["MAE"], "test_R2": r["test_metrics"]["R2"],
+        }
+        for r in results.values()
+    ]).sort_values("test_RMSE")
+    logger.info("Resolution comparison (held-out spatial test set):\n%s", comparison.to_string(index=False))
 
-    models = build_models(model_cfg["random_state"])
-    cv_summary = evaluate_with_cv(models, X_train, y_train, groups_train)
-    logger.info("Baseline CV comparison (grouped 5-fold, by SA3):\n%s", cv_summary.to_string(index=False))
+    winner = comparison.iloc[0]["resolution"]
+    logger.info("Winner: %s (lower held-out test RMSE)", winner)
 
-    real_models = cv_summary[cv_summary["model"] != "Mean baseline"]
-    best_name = real_models.iloc[0]["model"]
-    logger.info("Best baseline by CV RMSE: %s", best_name)
+    models_dir = PROJECT_ROOT / config["paths"]["models"]
+    models_dir.mkdir(parents=True, exist_ok=True)
+    comparison.to_csv(models_dir / "resolution_comparison.csv", index=False)
 
-    search = tune_model(best_name, X_train, y_train, groups_train, model_cfg["random_state"])
-    logger.info("Tuned %s best CV RMSE: %.4f | best params: %s", best_name, -search.best_score_, search.best_params_)
+    save_artifacts(results[winner], config)
 
-    test_metrics = evaluate_on_test(search.best_estimator_, X_test, y_test)
-    logger.info("Held-out test metrics for tuned %s: %s", best_name, test_metrics)
-
-    # Report generalization using the untouched test set above, then refit the tuned
-    # hyperparameters on ALL rows (train + test) for the artifact that ships in models/ —
-    # standard practice once the held-out estimate has already been recorded.
-    final_pipe = build_models(model_cfg["random_state"])[best_name]
-    final_pipe.set_params(**search.best_params_)
-    final_pipe.fit(data[FEATURE_COLS], data[TARGET_COL])
-
-    save_artifacts(final_pipe, FEATURE_COLS, cv_summary, search.best_params_, test_metrics, config)
-
-    return {
-        "cv_summary": cv_summary,
-        "best_name": best_name,
-        "best_params": search.best_params_,
-        "test_metrics": test_metrics,
-        "final_model": final_pipe,
-    }
+    return {"results": results, "comparison": comparison, "winner": winner}
 
 
 if __name__ == "__main__":
