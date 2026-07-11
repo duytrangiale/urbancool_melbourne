@@ -40,6 +40,8 @@ COPY models/feature_importance.csv models/feature_importance.csv
 # see app/build_static.py. Takes a few minutes (the global SHAP sample is the slow part).
 RUN python -m app.build_static
 
-# Hugging Face Spaces' Docker SDK expects the app to listen on 7860.
+# Hugging Face Spaces' Docker SDK expects the app on 7860 (and sets no PORT env var,
+# so the ${PORT:-7860} fallback covers it); Render sets PORT itself (default 10000) and
+# auto-detects whatever the container actually binds to. This one CMD works on both.
 EXPOSE 7860
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
