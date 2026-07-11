@@ -120,7 +120,6 @@ python-dotenv==1.2.2
 python-json-logger==4.1.0
 python-multipart==0.0.32
 pytz==2026.2
-pywinpty==3.0.5
 PyYAML==6.0.3
 pyzmq==27.1.0
 rasterio==1.4.4
