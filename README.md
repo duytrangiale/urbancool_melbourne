@@ -1,13 +1,3 @@
----
-title: UrbanCool Melbourne
-emoji: 🌡️
-colorFrom: blue
-colorTo: red
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # UrbanCool Melbourne
 
 [![Tests](https://github.com/duytrangiale/urbancool_melbourne/actions/workflows/tests.yml/badge.svg)](https://github.com/duytrangiale/urbancool_melbourne/actions/workflows/tests.yml)
@@ -17,23 +7,21 @@ pinned: false
 
 UrbanCool Melbourne fuses Victorian Government urban heat island and vegetation cover polygons, City of Melbourne tree/canopy data, OpenStreetMap urban morphology, Bureau of Meteorology weather records, and ABS Census demographics to train a Random Forest model that identifies which SA2 areas (suburbs) are most vulnerable during heatwaves. The deliverable is a FastAPI + static-console dashboard with an interactive heat map, SHAP-based explanations, and a "what-if" green-infrastructure simulator.
 
-**[Live demo](https://urbancool-melbourne.onrender.com/)** — note: hosted on a free tier that sleeps after 15 minutes of inactivity, so the first load after a while can take 30-60 seconds to wake up.
-
-> The YAML block above is [Hugging Face Spaces](https://huggingface.co/docs/hub/spaces-config-reference) metadata; GitHub ignores it and renders this file normally. It's left over from an earlier deployment attempt (see "Deploying" below for why the live demo above runs on Render instead).
+**[Live demo](https://urbancool-melbourne.onrender.com/)** (hosted on a free tier that sleeps after 15 minutes of inactivity, so the first load after a while can take 30-60 seconds to wake up).
 
 ## Results
 
 - **Held-out spatial test set** (SA1 resolution, 11,017 training rows across 353 SA2 groups, trained/tested on disjoint groups so no suburb leaks between train and test): **R² = 0.570, RMSE = 1.14°C, MAE = 0.83°C**.
-- **Strongest predictors** (SHAP feature importance): tree cover (44%) dominates, well ahead of overall vegetation cover (12%), population density (9%), and suburb area (7%) — tree canopy specifically, not green space in general, is the model's main cooling signal. See the dashboard's Feature Explorer tab for the full SHAP breakdown.
+- **Strongest predictors** (SHAP feature importance): tree cover (44%) dominates, well ahead of overall vegetation cover (12%), population density (9%), and suburb area (7%). Tree canopy specifically, not green space in general, is the model's main cooling signal. See the dashboard's Feature Explorer tab for the full SHAP breakdown.
 - **Random Forest tuned to 100 trees**, not the highest-scoring configuration found during search (500 trees scored marginally better: R² 0.5715 vs 0.5698), traded off deliberately to fit the deployed dashboard's free-tier memory budget. The difference is within normal training noise.
 
 ## Screenshots
 
 | | |
 |---|---|
-| ![Heat Map, predicted heat layer](docs/screenshots/heat_map_temperature.png) Heat Map — predicted heat above non-urban baseline, per SA2 area | ![Heat Map, vegetation cover layer](docs/screenshots/heat_map_vegetation_cover.png) Heat Map — vegetation cover layer toggle |
-| ![Feature Explorer, model-wide SHAP patterns](docs/screenshots/model_wide_patterns.png) Feature Explorer — model-wide SHAP feature importance | ![Feature Explorer, per-suburb SHAP waterfall](docs/screenshots/shap_water_fall.png) Feature Explorer — per-suburb SHAP waterfall |
-| ![What-If Simulator](docs/screenshots/what_if_simulator.png) What-If Simulator — live green-infrastructure re-prediction | |
+| ![Heat Map, predicted heat layer](docs/screenshots/heat_map_temperature.png) Heat Map: predicted heat above non-urban baseline, per SA2 area | ![Heat Map, vegetation cover layer](docs/screenshots/heat_map_vegetation_cover.png) Heat Map: vegetation cover layer toggle |
+| ![Feature Explorer, model-wide SHAP patterns](docs/screenshots/model_wide_patterns.png) Feature Explorer: model-wide SHAP feature importance | ![Feature Explorer, per-suburb SHAP waterfall](docs/screenshots/shap_water_fall.png) Feature Explorer: per-suburb SHAP waterfall |
+| ![What-If Simulator](docs/screenshots/what_if_simulator.png) What-If Simulator: live green-infrastructure re-prediction | |
 
 ## Data Sources
 
@@ -87,7 +75,7 @@ pytest tests/ -v                   # run the test suite
 ## Deploying
 
 The dashboard (`app/`) is a plain FastAPI app with a static HTML/CSS/JS frontend, packaged
-by the repo-root `Dockerfile` — it'll run on any host that can build and run a Docker
+by the repo-root `Dockerfile`. It'll run on any host that can build and run a Docker
 image and route traffic to port `7860`, or the `PORT` environment variable if the host
 sets one (Render does; the Dockerfile's `CMD` handles both).
 
@@ -113,11 +101,10 @@ Then on Render: **New → Web Service** → connect this repo → set **Branch**
 Render detects the `Dockerfile` automatically → **Instance type: Free**. Any future change
 to `main` needs merging into `deploy` before Render will pick it up.
 
-**Note on Hugging Face Spaces**: this was the original deployment target (hence the YAML
-frontmatter at the top of this file, and the `sdk: docker` config it declares), but
-Hugging Face moved Docker/Gradio Space hosting behind a paid PRO subscription partway
-through this project, so the live demo above runs on Render's free tier instead. The
-Dockerfile itself is unchanged either way — with a HF PRO account, the same build context
+**Note on Hugging Face Spaces**: this was the original deployment target, but Hugging
+Face moved Docker/Gradio Space hosting behind a paid PRO subscription partway through
+this project, so the live demo above runs on Render's free tier instead. The
+Dockerfile itself is unchanged either way; with a HF PRO account, the same build context
 (the `deploy` branch above) pushed to a Space's own git remote would work identically.
 
 ## Configuration
