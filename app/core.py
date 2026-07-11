@@ -21,7 +21,7 @@ import shap
 matplotlib.use("Agg")
 
 from src.data.loaders import PROJECT_ROOT, load_config
-from src.models.train import FEATURE_COLS
+from src.models.feature_columns import FEATURE_COLS
 
 SLIDER_COLS = ["tree_cover_pct_state", "vegetation_cover_pct_state", "impervious_ratio", "park_coverage_ratio"]
 
