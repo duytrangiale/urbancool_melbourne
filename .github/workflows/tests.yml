@@ -1,0 +1,35 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # lightgbm's wheel dynamically links the OpenMP runtime, which isn't guaranteed
+      # present on every runner image — see Dockerfile for the same requirement.
+      - name: Install libgomp1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgomp1
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # data/, models/ are gitignored (large, regenerable pipeline outputs), so this
+      # checkout has none of them. tests/test_api.py's whole file skips itself when
+      # models/best_model.joblib and predictions_sa2.csv are missing (see its
+      # pytestmark); tests/test_features.py's one real-data test does the same for
+      # feature_matrix.csv. Both report as "skipped", not "failed" — this workflow
+      # verifies the modeling/feature-engineering plumbing on synthetic data, not the
+      # live API or model accuracy, which is checked locally against real data instead.
+      - name: Run tests
+        run: pytest tests/ -v
