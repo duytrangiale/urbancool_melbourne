@@ -1,0 +1,6 @@
+{
+  "resolution": "SA1",
+  "model": "Random Forest",
+  "n_rows": 11017,
+  "n_groups": 353
+}

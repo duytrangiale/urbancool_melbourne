@@ -1,0 +1,15 @@
+feature,importance
+tree_cover_pct_state,0.44411641842516186
+vegetation_cover_pct_state,0.11748950274260203
+population_density,0.10060200007990262
+area_sqkm,0.06651862899047224
+pct_population_needing_care,0.039090568018277476
+dist_to_nearest_water_m,0.038098582021307774
+road_density_km_per_sqkm,0.03803035343209712
+dist_to_nearest_park_m,0.03048601320521226
+park_coverage_ratio,0.024921833216077972
+mean_building_area_sqm,0.023222608777569445
+water_coverage_ratio,0.022085272946769378
+impervious_ratio,0.021373047505045824
+building_density_per_ha,0.01916793204954617
+building_coverage_ratio,0.01479723858995774
