@@ -158,7 +158,7 @@
           <label class="field-label">Increase vegetation cover (percentage points)</label>
           <input class="uc-range" type="range" id="slider-veg" min="0" max="30" step="1" value="0" />
           <div class="range-row"><span>0pp</span><span class="range-current" id="val-veg">0pp</span><span>30pp</span></div>
-          <p class="warning-note">&#9888; Tree cover and vegetation cover tend to rise together in real suburbs. Raising <em>only</em> vegetation cover here asks the model about a combination it rarely saw during training (lots of grass/shrubs, but not more trees); that can occasionally predict a slight <em>increase</em> in heat instead of a decrease. That's a real, checked model behaviour, not a display bug (see the glossary for why).</p>
+          <p class="warning-note">&#9888; Tree cover and vegetation cover tend to rise together in real suburbs. Raising <em>only</em> vegetation cover here asks the model about a combination it rarely saw during training (lots of grass/shrubs, but not more trees); that can occasionally predict a slight <em>increase</em> in heat instead of a decrease. That's a real, checked model behaviour, not a display bug (see the glossary for why). The tree slider works the other way around: since tree canopy is always part of a suburb's total vegetation cover, raising tree cover here automatically raises vegetation cover to at least match it, so the simulator never asks the model about a suburb with more tree canopy than total vegetation, which can't happen in real life.</p>
 
           <label class="field-label">Convert impervious surface to green space (percentage points)</label>
           <input class="uc-range" type="range" id="slider-green" min="0" max="20" step="1" value="0" />
