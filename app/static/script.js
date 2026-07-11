@@ -358,6 +358,10 @@
         veg: Math.min(100, Math.max(0, currentSnapshot.vegetation_cover_pct_state + extraVeg)),
         impervious: Math.min(1, Math.max(0, currentSnapshot.impervious_ratio - conversionFraction)),
       };
+      // Tree canopy is a subset of vegetation cover — mirrors the same floor applied
+      // server-side in app/core.py::compute_whatif, so this panel never shows a tree/veg
+      // combination different from the one the prediction above actually used.
+      modifiedValues.veg = Math.max(modifiedValues.veg, modifiedValues.tree);
       renderWhatIfSnapshot(currentSnapshot, modifiedValues);
       renderMiniMap(suburb, resp.modified);
       renderProportionBar(modifiedValues.tree, modifiedValues.veg, modifiedValues.impervious);

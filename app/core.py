@@ -196,6 +196,11 @@ def compute_whatif(suburb: str, extra_tree: float, extra_veg: float, green_conve
     modified = base.copy()
     modified["tree_cover_pct_state"] = np.clip(modified["tree_cover_pct_state"] + extra_tree, 0, 100)
     modified["vegetation_cover_pct_state"] = np.clip(modified["vegetation_cover_pct_state"] + extra_veg, 0, 100)
+    # Tree canopy is a subset of vegetation cover (see the glossary), so tree cover can
+    # never exceed it — auto-raise vegetation cover to match if the tree slider alone
+    # would otherwise push tree_cover_pct_state past it, a combination that never occurs
+    # in the real training data and previously produced unreliable extrapolated predictions.
+    modified["vegetation_cover_pct_state"] = max(modified["vegetation_cover_pct_state"], modified["tree_cover_pct_state"])
     conversion_fraction = green_conversion / 100.0
     modified["impervious_ratio"] = np.clip(modified["impervious_ratio"] - conversion_fraction, 0, 1)
     modified["park_coverage_ratio"] = np.clip(modified["park_coverage_ratio"] + conversion_fraction, 0, 1)
