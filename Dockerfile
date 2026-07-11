@@ -19,7 +19,12 @@ FROM python:3.10-slim
 WORKDIR /code
 
 # geopandas/shapely/fiona/pyproj ship self-contained wheels on PyPI for this Python/OS
-# combination, so no system GDAL/GEOS install is needed here — kept minimal deliberately.
+# combination, so no system GDAL/GEOS install is needed here. lightgbm is the one
+# exception: its wheel dynamically links the OpenMP runtime (libgomp), which the slim
+# base image doesn't ship, so it must be installed via apt, not pip.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
