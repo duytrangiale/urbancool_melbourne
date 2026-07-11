@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>UrbanCool Melbourne: Heat Vulnerability Console</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<div class="console">
+  <header>
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <h1>UrbanCool Melbourne</h1>
+      <span class="sub">Heat Vulnerability Console</span>
+    </div>
+    <div class="header-chips">
+      <span class="chip live" title="This dashboard shows model predictions based on 2018 historical data, not a live sensor feed."><span class="dot"></span>PREDICTED &middot; 2018 BASELINE</span>
+      <span class="chip">RANDOM FOREST &middot; SA1</span>
+      <span class="chip">R&sup2; 0.57</span>
+      <span class="chip">RMSE 1.13&deg;C</span>
+      <button class="chip glossary-btn" id="glossary-open" type="button">? What do these numbers mean</button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- ============ LEFT RAIL (persistent across views) ============ -->
+    <div class="rail">
+      <div>
+        <div class="eyebrow">Model accuracy</div>
+        <div class="kpi">
+          <div class="kpi-label">Held-out R&sup2;</div>
+          <div class="kpi-value accent">0.572</div>
+          <div class="kpi-meta">variance explained, unseen areas</div>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Held-out RMSE</div>
+        <div class="kpi-value">1.13&deg;C</div>
+        <div class="kpi-meta">MAE 0.82&deg;C</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">SA2 areas mapped</div>
+        <div class="kpi-value">361</div>
+        <div class="kpi-meta">11,017 SA1 units trained on</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Mean predicted heat</div>
+        <div class="kpi-value">__MEAN_HEAT__&deg;C</div>
+        <div class="kpi-meta">above non-urban baseline</div>
+      </div>
+
+      <div class="panel-block">
+        <div class="eyebrow">Top drivers (SHAP)</div>
+        __BAR_ROWS__
+      </div>
+    </div>
+
+    <!-- ============ HEAT MAP VIEW ============ -->
+    <div class="view-panel active" id="view-heatmap" style="display:contents">
+      <div class="mapcol">
+        <div class="map-toolbar">
+          <div class="layer-toggle" role="group" aria-label="Map layer">
+            <button class="layer-btn active" data-layer="heat">Predicted Heat</button>
+            <button class="layer-btn" data-layer="tree">Tree Cover</button>
+            <button class="layer-btn" data-layer="veg">Vegetation Cover</button>
+          </div>
+          <span class="updated" id="map-layer-caption">SA1&rarr;SA2 aggregated prediction &middot; 361 SA2 areas</span>
+        </div>
+        <div class="map-stage" id="map-stage">
+          <div class="zoom-controls">
+            <button id="zoom-in" title="Zoom in">+</button>
+            <button id="zoom-out" title="Zoom out">&minus;</button>
+            <button id="zoom-reset" title="Reset view">&#8634;</button>
+          </div>
+          <div class="zoom-hint">Scroll or pinch to zoom &middot; drag to pan</div>
+          <svg viewBox="0 0 900 760" xmlns="http://www.w3.org/2000/svg" id="map-svg">
+            <g id="map-zoom-group">
+            __SA2_PATHS__
+            </g>
+          </svg>
+          <div class="map-tooltip" id="map-tooltip"></div>
+          <div class="map-legend">
+            <div class="eyebrow" id="legend-title">&deg;C above baseline</div>
+            <div class="legend-ramp" id="legend-ramp"></div>
+            <div class="legend-scale" id="legend-scale"><span>__V_MIN__</span><span>__V_MID__</span><span>__V_MAX__</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="rail">
+        <div class="panel-block">
+          <div class="eyebrow">Hottest suburbs <span class="hint-text">(click to find on map)</span></div>
+          <ul class="rank-list" id="hottest-list">__HOTTEST_ROWS__</ul>
+        </div>
+        <div class="panel-block">
+          <div class="eyebrow">Coolest suburbs <span class="hint-text">(click to find on map)</span></div>
+          <ul class="rank-list" id="coolest-list">__COOLEST_ROWS__</ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FEATURE EXPLORER VIEW ============ -->
+    <div class="view-panel" id="view-explorer" style="display:none">
+      <div class="center-column">
+        <div>
+          <label class="field-label" for="explorer-suburb">Select a suburb</label>
+          <select class="uc-select" id="explorer-suburb">__SUBURB_OPTIONS__</select>
+        </div>
+
+        <div class="tabs-row">
+          <button class="subtab active" data-subtab="suburb-shap">Selected suburb</button>
+          <button class="subtab" data-subtab="global-patterns">Model-wide patterns</button>
+        </div>
+
+        <div class="subpanel active" id="subpanel-suburb-shap">
+          <div class="eyebrow">SHAP waterfall: why this suburb's predicted heat is what it is</div>
+          <div class="shap-image-wrap" id="shap-wrap">
+            <span class="loading-text">Loading&hellip;</span>
+          </div>
+          <p class="caption-text">Reads left to right: starting from the average predicted heat across all suburbs, each feature pushes this suburb's prediction up (red) or down (blue) until it reaches this suburb's actual predicted value on the right.</p>
+        </div>
+
+        <div class="subpanel" id="subpanel-global-patterns">
+          <div class="eyebrow">Global feature importance (SHAP, 300-suburb sample)</div>
+          <div class="shap-image-wrap"><img src="/static/shap_summary_dark.png" alt="SHAP summary" onerror="this.parentElement.innerHTML='<span class=loading-text>Not generated yet. Run the build script.</span>'" /></div>
+          <p class="caption-text">Each row is a feature, sorted by how much it matters overall (top = most influential). Each dot is one suburb: its position left/right shows whether that feature pushed <em>that suburb's</em> prediction up or down, and its colour shows whether that suburb had a high (pink) or low (blue) value for the feature. E.g. the top row shows mostly pink dots on the left and blue dots on the right: high tree cover (pink) pushes predictions down (cooler), low tree cover (blue) pushes them up (hotter).</p>
+          <div class="eyebrow" style="margin-top:1rem">Predicted heat vs. key features (all 361 SA2 areas)</div>
+          <div class="shap-image-wrap"><img src="/static/scatter_dark.png" alt="Feature scatter plots" onerror="this.parentElement.innerHTML='<span class=loading-text>Not generated yet. Run the build script.</span>'" /></div>
+          <p class="caption-text">Each dot is one suburb, plotted by its feature value (x-axis) against its predicted heat (y-axis). The white line shows the overall trend. A downward-sloping line means more of that feature is associated with less predicted heat.</p>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="panel-block">
+          <div class="eyebrow">Suburb snapshot</div>
+          <ul class="rank-list" id="explorer-snapshot"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ WHAT-IF SIMULATOR VIEW ============ -->
+    <div class="view-panel" id="view-whatif" style="display:none">
+      <div class="center-column">
+        <div>
+          <label class="field-label" for="whatif-suburb">Select a suburb</label>
+          <select class="uc-select" id="whatif-suburb">__SUBURB_OPTIONS_COMPLETE__</select>
+          <p class="caption-text" id="whatif-excluded-note"></p>
+        </div>
+
+        <div class="panel-block">
+          <div class="eyebrow">Adjust green infrastructure</div>
+
+          <label class="field-label">Increase tree cover (percentage points)</label>
+          <input class="uc-range" type="range" id="slider-tree" min="0" max="30" step="1" value="0" />
+          <div class="range-row"><span>0pp</span><span class="range-current" id="val-tree">0pp</span><span>30pp</span></div>
+
+          <label class="field-label">Increase vegetation cover (percentage points)</label>
+          <input class="uc-range" type="range" id="slider-veg" min="0" max="30" step="1" value="0" />
+          <div class="range-row"><span>0pp</span><span class="range-current" id="val-veg">0pp</span><span>30pp</span></div>
+          <p class="warning-note">&#9888; Tree cover and vegetation cover tend to rise together in real suburbs. Raising <em>only</em> vegetation cover here asks the model about a combination it rarely saw during training (lots of grass/shrubs, but not more trees); that can occasionally predict a slight <em>increase</em> in heat instead of a decrease. That's a real, checked model behaviour, not a display bug (see the glossary for why).</p>
+
+          <label class="field-label">Convert impervious surface to green space (percentage points)</label>
+          <input class="uc-range" type="range" id="slider-green" min="0" max="20" step="1" value="0" />
+          <div class="range-row"><span>0pp</span><span class="range-current" id="val-green">0pp</span><span>20pp</span></div>
+        </div>
+
+        <div class="result-grid">
+          <div class="result-card">
+            <span class="kpi-label">Current</span>
+            <div class="kpi-value" id="whatif-current">&mdash;</div>
+          </div>
+          <div class="result-card">
+            <span class="kpi-label">After intervention</span>
+            <div class="kpi-value" id="whatif-after">&mdash;</div>
+          </div>
+          <div class="result-card">
+            <span class="kpi-label">Reduction</span>
+            <div class="kpi-value" id="whatif-reduction">&mdash;</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="panel-block">
+          <div class="eyebrow" id="whatif-map-title">Suburb shape</div>
+          <div class="mini-map-stage">
+            <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" id="whatif-mini-map"></svg>
+          </div>
+        </div>
+        <div class="panel-block">
+          <div class="eyebrow">Green / grey mix</div>
+          <div id="whatif-proportion-bar" class="proportion-bar"></div>
+          <div id="whatif-proportion-legend" class="proportion-legend"></div>
+        </div>
+        <div class="panel-block">
+          <div class="eyebrow">Suburb snapshot <span class="hint-text">(baseline &rarr; adjusted)</span></div>
+          <ul class="rank-list" id="whatif-snapshot"></ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="view-heatmap">&#127758; Heat Map</button>
+      <button class="view-tab" data-view="view-explorer">&#128269; Feature Explorer</button>
+      <button class="view-tab" data-view="view-whatif">&#127795; What-If Simulator</button>
+    </div>
+    <div class="note">UrbanCool Melbourne &middot; predictions from a model trained on 2018 data, not a live feed</div>
+  </footer>
+</div>
+
+<div class="glossary-overlay" id="glossary-overlay">
+  <div class="glossary-panel">
+    <div class="glossary-header">
+      <h2>What do these numbers mean?</h2>
+      <button class="glossary-close" id="glossary-close" type="button" aria-label="Close">&times;</button>
+    </div>
+    <div class="glossary-body">
+
+      <section>
+        <h3>What is "Urban Heat Island" (UHI)?</h3>
+        <p>Built-up areas (concrete, asphalt, buildings, roofs) trap and radiate heat, making them run hotter than nearby natural or rural land with grass and trees. This is called the Urban Heat Island effect. Every number on this dashboard measures <strong>how much hotter a suburb runs compared to a non-urban reference area nearby</strong>, not the temperature you'd see on a weather app.</p>
+      </section>
+
+      <section>
+        <h3>Why 361 "suburbs," when Victoria only has around 341 official ones?</h3>
+        <p>This dashboard is built on <strong>SA2</strong> (Statistical Area Level 2), the Australian Bureau of Statistics' standard geography for reporting Census and demographic data, not the official list of gazetted Victorian suburb boundaries. SA2s are drawn to hold a similar population size each (roughly 3,000 to 25,000 people), so they don't line up one-to-one with real suburbs.</p>
+        <p>In practice that means a large suburb can be split into several SA2s (Brunswick appears here as "Brunswick East," "Brunswick West," "Brunswick - North," and "Brunswick - South"), a couple of small suburbs can be merged into one SA2 ("Alphington - Fairfield"), and a few SA2s are not residential suburbs at all ("Royal Botanic Gardens Victoria," "Flemington Racecourse"). That's the whole reason the count here (361) differs from Victoria's official suburb count. Everywhere this dashboard says "suburb," it's really using that word as a familiar stand-in for "SA2 area."</p>
+      </section>
+
+      <section>
+        <h3>What does a number like "8.5&deg;C" actually mean?</h3>
+        <p>It means: <em>this suburb tends to run about 8.5&deg;C hotter than nearby natural land would, purely because of how built-up and vegetated it is.</em> It is <strong>not</strong> "the temperature there is 8.5&deg;C." A number near zero means that suburb is barely hotter than natural land nearby, usually a leafy, low-density area.</p>
+      </section>
+
+      <section>
+        <h3>"Mean" and "predicted": why those specific words?</h3>
+        <p><strong>Mean</strong> = average. The underlying data measures temperature across many small patches within a suburb; this is the average across all of them, not the single hottest spot or a specific moment in time.</p>
+        <p><strong>Predicted</strong> = estimated by the model, not directly re-measured. A model learned the pattern ("suburbs with less tree cover and more pavement tend to run hotter") from real 2018 satellite measurements, and now estimates that same pattern for every suburb from things we know about it today (tree cover, building density, population, etc). It's an educated estimate based on a suburb's characteristics, not a live reading of that exact place right now.</p>
+      </section>
+
+      <section>
+        <h3>R&sup2; and RMSE: how good is this model, really?</h3>
+        <p><strong>R&sup2;</strong> (0.57 here) is the fraction of the real variation in heat across suburbs that the model successfully explains, measured on suburbs it never saw while learning. 1.0 would be perfect; 0 would mean "no better than always guessing the average." 0.57 means the model captures a solid majority of the real pattern, with real error left over.</p>
+        <p><strong>RMSE</strong> (1.13&deg;C here) is the model's typical prediction error in the same units as the map. On unseen suburbs, predictions are usually within about 1&deg;C of the true value.</p>
+      </section>
+
+      <section>
+        <h3>Tree cover vs. vegetation cover: why two separate numbers?</h3>
+        <p><strong>Vegetation cover</strong> is any living plant material at all: trees, shrubs, grass, lawns, park ovals. <strong>Tree cover</strong> is specifically the tree canopy, a subset of vegetation cover. A suburb can have lots of grass but few trees (e.g. a sports oval), or vice versa. This matters because trees cool two ways: blocking the sun (shade) <em>and</em> releasing water vapour (evapotranspiration), while grass only does the second, much less effectively. That's why tree cover has a much stronger cooling relationship with predicted heat than vegetation cover overall.</p>
+      </section>
+
+      <section>
+        <h3>Converting impervious surface to green space</h3>
+        <p><strong>Impervious surface</strong> = sealed, hard ground that doesn't absorb water or support plants (pavement, roads, car parks, roofs). It soaks up solar heat and radiates it back, including into the evening. Converting it to green space (e.g. a park) helps, but usually less than adding trees specifically, for the same two reasons as above: "green space" here means grass/park, not automatically new tree canopy, and impervious surface has a smaller overall effect on the model's predictions than vegetation does.</p>
+      </section>
+
+      <section>
+        <h3>How to read a SHAP waterfall chart</h3>
+        <p>Starts from the average predicted heat across all suburbs (bottom label), then each feature nudges the prediction up (red, pushes right) or down (blue, pushes left) by its own amount, ending at this specific suburb's predicted value (top label). It answers: <em>"why did this particular suburb get this particular prediction?"</em></p>
+      </section>
+
+      <section>
+        <h3>How to read the SHAP summary (beeswarm) chart</h3>
+        <p>Each row is a feature, ranked by overall importance (top = matters most across all suburbs). Each dot is one suburb: its left/right position shows whether that feature pushed <em>that suburb's</em> prediction up or down, and its colour shows whether that suburb had a high (pink) or low (blue) value for the feature. It answers: <em>"what does the model care about, in general?"</em> That's a different question than the waterfall chart.</p>
+      </section>
+
+      <section>
+        <h3>Why might the What-If Simulator's "Current" differ slightly from the Heat Map?</h3>
+        <p>The Heat Map's value for a suburb is built by predicting separately for many small areas within it, then averaging those predictions. The What-If Simulator instead predicts once from the suburb's overall average characteristics, because that's the only way to test a hypothetical suburb-wide change. Since the underlying model isn't a simple straight-line formula, these two approaches can give slightly different numbers for the same suburb. Both are "correct" for what they're each trying to answer.</p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="layer-ranges-data">__LAYER_RANGES_JSON__</script>
+<script type="application/json" id="suburb-lookup-data">__SUBURB_LOOKUP_JSON__</script>
+<script src="/static/script.js"></script>
+</body>
+</html>

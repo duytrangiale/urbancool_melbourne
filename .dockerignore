@@ -1,0 +1,31 @@
+# Keep the build context small — the Dockerfile COPYs only the specific data/model
+# files it needs, but without this, Docker still has to tar up everything below first.
+.git/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+notebooks/
+tests/
+
+data/raw/
+data/interim/*
+!data/interim/sa2_boundaries.parquet
+data/processed/*
+!data/processed/predictions_sa2.csv
+models/*
+!models/best_model.joblib
+!models/model_info.json
+!models/test_metrics.json
+!models/feature_importance.csv
+
+cache/
+outputs/
+app/static/index.html
+app/static/*.png
+
+UrbanCool_Melbourne_Project_Guide.md
+CLAUDE.md
+DAY_*.md

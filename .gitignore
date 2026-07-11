@@ -22,6 +22,17 @@ data/interim/*
 models/*
 !models/.gitkeep
 
+# Generated maps/reports (regenerable via src/visualization/maps.py; the Folium HTML
+# embeds full choropleth GeoJSON and can run into the tens of MB)
+outputs/*
+!outputs/.gitkeep
+
+# Dashboard: index.html + chart PNGs are baked by app/build_static.py from the trained
+# model/predictions — regenerable, not source. styles.css/script.js ARE hand-written
+# source and stay tracked.
+app/static/index.html
+app/static/*.png
+
 # osmnx HTTP response cache (can grow to 1GB+; safe to regenerate)
 cache/
 

@@ -22,11 +22,13 @@ dependencies = [
     "seaborn",
     "plotly",
     "folium",
-    "streamlit",
+    "fastapi",
+    "uvicorn",
     "pyyaml",
     "python-dotenv",
     "requests",
     "pytest",
+    "httpx",
     "jupyter",
 ]
 
