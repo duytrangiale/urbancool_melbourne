@@ -31,6 +31,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 from src.data.loaders import PROJECT_ROOT, load_config
+from src.models.feature_columns import FEATURE_COLS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -67,27 +68,6 @@ RESOLUTIONS = {
 # excluded here rather than imputed — imputing a value for 89% of rows would mostly be
 # guessing, not signal. max_uhi_2018 and heat_mesh_block_count are dropped as target
 # leakage: both come from the same heat-overlay computation as mean_uhi_2018 itself.
-# population_density / pct_population_needing_care (from the Vic Government Heat
-# Vulnerability Index dataset's 2016-Census-derived indicators, NOT its HVI_INDEX column,
-# which is itself heat-derived and would be leakage) are new as of this round — see
-# DAY_4.md's Part G and src/features/spatial.py::compute_demographic_features.
-FEATURE_COLS = [
-    "area_sqkm",
-    "vegetation_cover_pct_state",
-    "tree_cover_pct_state",
-    "building_density_per_ha",
-    "building_coverage_ratio",
-    "mean_building_area_sqm",
-    "road_density_km_per_sqkm",
-    "park_coverage_ratio",
-    "water_coverage_ratio",
-    "dist_to_nearest_park_m",
-    "dist_to_nearest_water_m",
-    "impervious_ratio",
-    "population_density",
-    "pct_population_needing_care",
-]
-
 _BOOSTING_PARAM_DIST = {
     "model__n_estimators": [100, 200, 500],
     "model__max_depth": [3, 5, 7, 10],
@@ -96,8 +76,13 @@ _BOOSTING_PARAM_DIST = {
     "model__colsample_bytree": [0.7, 0.8, 0.9, 1.0],
     "model__min_child_weight": [1, 3, 5],
 }
+# n_estimators capped at 150 (not the 500 an unconstrained search would happily pick):
+# the deployed dashboard runs this model inside a 512MB container (see DAY_6.md's
+# deployment section), and a 500-tree forest plus its SHAP explainer measured ~730MB
+# resident, well past that. 100-150 trees loses ~0.002 RMSE / ~0.002 R2 on the held-out
+# spatial test set versus 500 (noise-level) while fitting comfortably in memory.
 _FOREST_PARAM_DIST = {
-    "model__n_estimators": [100, 200, 500],
+    "model__n_estimators": [50, 100, 150],
     "model__max_depth": [3, 5, 7, 10, None],
     "model__min_samples_leaf": [1, 2, 4, 8],
     "model__max_features": ["sqrt", "log2", 0.5, 1.0],

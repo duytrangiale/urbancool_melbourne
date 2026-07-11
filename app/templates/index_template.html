@@ -18,7 +18,7 @@
       <span class="chip live" title="This dashboard shows model predictions based on 2018 historical data, not a live sensor feed."><span class="dot"></span>PREDICTED &middot; 2018 BASELINE</span>
       <span class="chip">RANDOM FOREST &middot; SA1</span>
       <span class="chip">R&sup2; 0.57</span>
-      <span class="chip">RMSE 1.13&deg;C</span>
+      <span class="chip">RMSE 1.14&deg;C</span>
       <button class="chip glossary-btn" id="glossary-open" type="button">? What do these numbers mean</button>
     </div>
   </header>
@@ -31,14 +31,14 @@
         <div class="eyebrow">Model accuracy</div>
         <div class="kpi">
           <div class="kpi-label">Held-out R&sup2;</div>
-          <div class="kpi-value accent">0.572</div>
+          <div class="kpi-value accent">0.570</div>
           <div class="kpi-meta">variance explained, unseen areas</div>
         </div>
       </div>
       <div class="kpi">
         <div class="kpi-label">Held-out RMSE</div>
-        <div class="kpi-value">1.13&deg;C</div>
-        <div class="kpi-meta">MAE 0.82&deg;C</div>
+        <div class="kpi-value">1.14&deg;C</div>
+        <div class="kpi-meta">MAE 0.83&deg;C</div>
       </div>
       <div class="kpi">
         <div class="kpi-label">SA2 areas mapped</div>
@@ -245,7 +245,7 @@
       <section>
         <h3>R&sup2; and RMSE: how good is this model, really?</h3>
         <p><strong>R&sup2;</strong> (0.57 here) is the fraction of the real variation in heat across suburbs that the model successfully explains, measured on suburbs it never saw while learning. 1.0 would be perfect; 0 would mean "no better than always guessing the average." 0.57 means the model captures a solid majority of the real pattern, with real error left over.</p>
-        <p><strong>RMSE</strong> (1.13&deg;C here) is the model's typical prediction error in the same units as the map. On unseen suburbs, predictions are usually within about 1&deg;C of the true value.</p>
+        <p><strong>RMSE</strong> (1.14&deg;C here) is the model's typical prediction error in the same units as the map. On unseen suburbs, predictions are usually within about 1&deg;C of the true value.</p>
       </section>
 
       <section>

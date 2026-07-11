@@ -20,7 +20,7 @@ import shap
 
 from app.core import ACCENT, DARK_RCPARAMS, DARK_SURFACE, INK, _brighten_dark_text, complete_suburbs, green_ramp, heat_ramp, load_model, load_sa2_df, load_shap_explainer
 from src.data.loaders import PROJECT_ROOT, load_config
-from src.models.train import FEATURE_COLS
+from src.models.feature_columns import FEATURE_COLS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
